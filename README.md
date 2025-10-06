@@ -42,7 +42,7 @@ echo 'export PATH="/opt/homebrew/anaconda3/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 
 # Initialize anaconda
-conda init
+conda init zsh
 
 # Update conda to latest version (requires sudo)
 conda update -n base -c defaults conda

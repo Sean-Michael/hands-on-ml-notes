@@ -106,7 +106,50 @@ If the training error is low but the generalization error is high, it measn the 
 
 # Questions
 
-1. I don't really understand the last sections on hyperparameter tuning, and data mismatch? Might need to dig a bit deeper. Question?
+### 1. I don't really understand the last sections on hyperparameter tuning, and data mismatch? Might need to dig a bit deeper. Question?
 
-*Answer:*
+### *Answer:*
+
+### Hyperparameter Tuning
+
+**Hyperparameters** are parameters of the learning algorithm itself (not the model). Unlike model parameters that are learned during training (like weights in a neural network), hyperparameters are set *before* training begins.
+
+**Key concepts:**
+- **Examples of hyperparameters**: learning rate, regularization strength, number of layers in a neural network, number of neighbors in k-NN
+- **Why tune them?** The "right" hyperparameter values help prevent overfitting while maintaining good performance
+- **The validation set approach**: Since you can't use the test set to tune hyperparameters (that would leak information and give overly optimistic results), you typically:
+  1. Split training data into a smaller training set + a **validation set** (or **development set**)
+  2. Train multiple models with different hyperparameter values on the reduced training set
+  3. Evaluate each on the validation set and select the best-performing hyperparameters
+  4. Retrain the final model on the full training set (training + validation combined)
+  5. Evaluate once on the test set for the final generalization error
+
+**Holdout validation** is when you simply hold out part of the training set for validation. **Cross-validation** involves splitting the training set into multiple folds and validating on each fold sequentially for more robust hyperparameter selection.
+
+### Data Mismatch
+
+**Data mismatch** occurs when your training data is significantly different from the data your model will encounter in production.
+
+**The problem:**
+- High generalization error (bad test set performance) could be due to:
+  1. **Overfitting** - model is too complex
+  2. **Data mismatch** - training and test data come from different distributions
+
+**Example scenario:**
+- You build a flower classification app using flowers from the web (training data)
+- Users upload photos from mobile phones (production/test data)
+- Mobile photos have different lighting, angles, quality → data mismatch
+
+**Solution - Train-dev set:**
+To diagnose whether you have overfitting or data mismatch:
+1. Split your training data into: actual training set + **train-dev set**
+2. The train-dev set comes from the same distribution as training but isn't used for training
+3. Compare errors:
+   - If train-dev error is high → **overfitting** (model doesn't generalize even within training distribution)
+   - If train-dev error is low but test/validation error is high → **data mismatch** (different distributions)
+
+**Fixing data mismatch:**
+- Collect more training data that resembles production data
+- Engineer features that are robust across both distributions
+- Use data augmentation to simulate production conditions
 
