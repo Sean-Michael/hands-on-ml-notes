@@ -199,3 +199,201 @@ ordinal_encoder = OrdinalEncoder()
 housing_cat_encoded = ordinal_encoder.fit_transform(housing_cat)
 ```
 
+### Feature Scaling and Transformation
+
+When numerical input attributes have different scales i.e total number of rooms ranging from 6 to 39,320 while median incomes only range from 0 to 15, we apply a *feature scaling* transformation. 
+
+#### *min-max scaling*
+
+Often called *normalization* this simply reduces the values to a rnage from 0 to 1 by subtracting the min value from all values and dividing the results by the difference between the min and the max. Scikit-Learn provides a `MinMaxScaler` transformer for this. 
+
+```python
+from sklearn.preprocessing import MinMaxScaler
+
+min_max_scaler = MinMaxScaler(feature_range=(-1,1))
+housing_num_min_max_scaled = min_max_scaler.fit_transform(housing_num)
+```
+
+#### *standardization*
+
+This method involves subtracting the mean value (zero mean), and dividing the results by the standard deviation. (standard deviation equal to 1)
+
+This doesn't restrict values to a certain range, and is much less affected by outliers.
+
+Scikit-Learn provides a transformer `StandardScaler` for this.
+
+```python
+from sklearn.preprocessing import StandardScaler
+standard_scaler = StandardScaler()
+housing_num_std_scaled = standard_scalar.fit_transform(housing_num)
+```
+
+### Custom Transformers
+
+Writing a custom tansformer can be written as functions that take a NumPy array ans input and outputs the transformed array. Example: log transform of heavy-tailed distributions:
+
+```python
+from sklearn.preprocessing import FunctionTransformer
+
+log_transformer = FunctionTransformer(np.log, invers_func = np.exp)
+log_pop = log_transformer(hosuing[["population"]])
+```
+
+So `FunctionTransformer` is very handy but for any transformation model that we want to *learn* from `fit()` and then later `transform()` data with, we need to write a custom class.
+
+#### Custom Transformer Classes
+
+There is no base class to inherit from but these classes need three methods:
+
+- `fit()` (which must return `self`) 
+- `transform()` 
+- `fit_transform()`
+
+Using the `TransformerMixin` base class gets `fit_transform()`. 
+
+Using the `BaseEstimator` gets `get_params()` and `set_params()`, which are helpful for hyperparameter tuning.
+
+An example of a copy of the functionality of `StandardScaler`:
+
+```python
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.utils.validation import check_array, check_is_fitted
+
+class StandardScalerClone(BaseEstimator, TransformerMixin)
+    def __init__(self, with_mean=True):
+        self.with_mean = with_mean
+
+    def fit(self, x, y=None)
+        x = check_array(x)
+        self.mean_ = x.mean(axis=0)
+        self.scale_ - x.std(axis=0)
+        self.n_features_in_ = x.shape[1]
+        return self
+
+    def transform(self, x):
+        check_is_fitted(self)
+        x = check_array(x)
+        assert self.n_features_in_ == x.shape[1]
+        if self.with_mean:
+            x = x - self.mean_
+        return x / self.scale_
+```
+
+### Transformation Pipelines
+
+many transformations steps need to be executed in order. Using the Scikit-learn `Pipeline` class helps sequence the transformations. 
+
+```python
+from sklearn.pipeline import Pipeline
+
+num_pipeline = Pipeline([
+    ("impute", SimpleImputer(strategy="median")),
+    ("standardize", StandardScaler()),
+])
+```
+
+The `Pipeline` constructor takes two tuples, name/estimator pairs defining a sequence. 
+
+- estimators must all be transformers (must have a `fit_transform()` method)
+- exception for the last one which can be anything: transformer, predictor, other type of estimator 
+
+For handling both numeric and categorical columns we can use a `ColumnTransformer` which could apply a `num_pipeline` to numerical attributes, and `cat_pipeline` to the categorical attribute:
+
+```python
+from sklearn.compose import ColumnTransformer
+
+num_attribs = ["longitude", "latitude", "housing_median_age", "total_rooms",
+               "total_bedrooms", "population", "households", "median_income"]
+cat_attribs = ["ocean_proximity"]
+
+cat_pipeline = make_pipeline(
+    Simpleimputer(strategy="most_frequent"),
+    OneHotEncoder(handle_unkown="ignore")
+)
+
+preprocessing = ColumnTransformer([
+    ("num", num_pipeline, num_attribs),
+    ("cat", cat_pipeline, cat_attribs),
+])
+```
+
+For a more automated method for naming and selecting columns: 
+
+```python
+from sklearn.compose import make_column_selector, make_column_transformer
+
+preprocessing = make_column_transformer(
+    (num_pipeline, make_column_selector(dtype_include=np.number)),
+    (cat_pipeline, make_column_selector(dtype_include=object),
+)
+```
+
+Then to apply to the housing data:
+
+```python
+housing_prepared = preprocessing.fit_transform(housing)
+```
+
+With the data prepared we can think about training the model. 
+
+####  Pipeline Steps
+First let's review the steps for the full pipeline. 
+
+1. Missing values will be handled by imputing the median value for numerical features, and the most frequent for categorical.
+
+2. Categorical feature will be one-hot encoded as a numerical input
+
+3. Ratio features computed and added: `bedrooms_ratio`, `rooms_per_house`, and `people_pre_house`. 
+
+4. Cluster similarity features added to improve latitudea nd longitude context.
+
+5. Features with long tail replaced by their logarithm, models prefer roughly uniform gaussian distributions
+
+6. All numerical features will be standardized to have relatively similar scale.
+
+And here are those steps in code:
+
+```python
+def column_ratio(X):
+    return X[:, [0]] / X[:, [1]]
+
+def ratio_name(function_transformer, feature_names_in):
+    return ["ratio"]  # feature names out
+
+def ratio_pipeline():
+    return make_pipeline(
+        SimpleImputer(strategy="median"),
+        FunctionTransformer(column_ratio, feature_names_out=ratio_name),
+        StandardScaler())
+
+log_pipeline = make_pipeline(
+    SimpleImputer(strategy="median"),
+    FunctionTransformer(np.log, feature_names_out="one-to-one"),
+    StandardScaler())
+cluster_simil = ClusterSimilarity(n_clusters=10, gamma=1., random_state=42)
+default_num_pipeline = make_pipeline(SimpleImputer(strategy="median"),
+                                     StandardScaler())
+preprocessing = ColumnTransformer([
+        ("bedrooms", ratio_pipeline(), ["total_bedrooms", "total_rooms"]),
+        ("rooms_per_house", ratio_pipeline(), ["total_rooms", "households"]),
+        ("people_per_house", ratio_pipeline(), ["population", "households"]),
+        ("log", log_pipeline, ["total_bedrooms", "total_rooms", "population",
+                               "households", "median_income"]),
+        ("geo", cluster_simil, ["latitude", "longitude"]),
+        ("cat", cat_pipeline, make_column_selector(dtype_include=object)),
+    ],
+    remainder=default_num_pipeline)  # one column remaining: housing_median_age
+```
+
+Yay! Our training data has now been preprocessed and prepared in an automated pipeline!
+
+## Select and Train a Model
+
+
+
+
+## Questions
+
+1. Not sure I fully understand the data normalization / distribution stuff. Distribution with a heavy tail, power law distribution, bucketizing, multimodal distribution, radial basis function, inverse transformations
+
+2. Why do models prefer unifrom gaussian distributions? If it can be solved wth just a logarithm or other transformations.
