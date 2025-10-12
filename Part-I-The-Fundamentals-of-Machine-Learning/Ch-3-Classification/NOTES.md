@@ -19,6 +19,8 @@ Unfortunately, you can’t have it both ways: increasing precision reduces recal
 
 1. What does the random_state do here? `sgd_clf = SGDClassifier(random_state=42)`
 
+*Answer*: The `random_state` parameter sets the seed for the random number generator used during training. SGDClassifier uses randomness when shuffling the training data and initializing weights. Setting `random_state=42` ensures reproducibility—you'll get the same results every time you run the code with the same data. Without it, results would vary slightly between runs.
+
 2. I still am a bit confused by this syntax? It seems super simple/abstracted? what's it actually doing? 
 
 ```python
@@ -31,6 +33,8 @@ sgd_clf = SGDClassifier(random_state=42)
 sgd_clf.fit(X_train, y_train_5)
 ```
 
+*Answer*: This creates a binary classifier for detecting 5s. The first two lines create boolean arrays where `True` indicates the digit is a 5 and `False` for everything else—this converts the multi-class problem (digits 0-9) into a binary classification problem (5 vs not-5). The `SGDClassifier` then trains using Stochastic Gradient Descent to find a decision boundary that separates 5s from non-5s. The `.fit()` method iterates through the training data, making small weight adjustments to minimize classification error.
+
 3. How does scikit know to use OVR or OVO like how does it know that there's 10 classes just from this?
 
 ```python
@@ -41,3 +45,5 @@ svm_clf.fit(X_train[:2000], y_train[:2000])  # y_train, not y_train_5
 ```
 
 I guess the training data is labeled right so it understands there are 10 labels?
+
+*Answer*: Yes, exactly right! The classifier detects the number of unique classes by examining the `y_train` labels. When you pass `y_train` (which contains digits 0-9), scikit-learn automatically identifies there are 10 distinct classes. For `SVC` specifically, it uses OVO (One-vs-One) by default, creating 45 binary classifiers (one for each pair of digits). If you used a different classifier like `SGDClassifier` with multi-class data, it would use OVR (One-vs-Rest) by default instead, creating 10 binary classifiers (one per digit vs all others).
