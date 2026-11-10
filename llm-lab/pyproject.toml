@@ -1,0 +1,22 @@
+[project]
+name = "llm-lab"
+version = "0.1.0"
+description = "Local LoRA fine-tuning + quantization lab (MLX + llama.cpp)"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "mlx-lm",
+    "datasets",
+    "huggingface-hub",
+    "transformers",
+    "sentencepiece",
+    "protobuf",
+    "torch",
+    "numpy",
+    "gguf",
+    "ipykernel",
+    "matplotlib",
+    "pandas",
+]
+
+[tool.uv]
+package = false
